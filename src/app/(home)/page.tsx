@@ -29,22 +29,22 @@ export default async function Home({ searchParams }: PropsType) {
 
       <div className="mt-4 flex flex-wrap justify-between gap-4 md:mt-6 md:gap-6">
         <Button
-          label="Upload New Module"
+          label="Add / Manage SME's"
           variant="primary"
           shape="rounded"
-          className="min-w-[200px] flex-1 bg-[rgb(212,53,34)] hover:bg-[rgb(212,53,34)]/90"
+          className="min-w-[200px] flex-1 !bg-[rgb(212,53,34)] hover:!bg-[rgb(212,53,34)]/90"
         />
         <Button
-          label="Create Questions"
+          label="Set Training Cycle"
           variant="primary"
           shape="rounded"
-          className="min-w-[200px] flex-1 bg-[rgb(212,53,34)] hover:bg-[rgb(212,53,34)]/90"
+          className="min-w-[200px] flex-1 !bg-[rgb(212,53,34)] hover:!bg-[rgb(212,53,34)]/90"
         />
         <Button
-          label="Manage Modules"
+          label="View Reports"
           variant="primary"
           shape="rounded"
-          className="min-w-[200px] flex-1 bg-[rgb(212,53,34)] hover:bg-[rgb(212,53,34)]/90"
+          className="min-w-[200px] flex-1 !bg-[rgb(212,53,34)] hover:!bg-[rgb(212,53,34)]/90"
         />
       </div>
       <div className="mt-4 gap-4 md:mt-6 md:gap-6 2xl:mt-9 2xl:gap-7.5">

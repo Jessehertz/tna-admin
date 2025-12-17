@@ -30,6 +30,7 @@ export default function ManageModulesViewPage({
   const [moduleName, setModuleName] = useState("");
   const [moduleDescription, setModuleDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [status, setStatus] = useState<string>("active");
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewRatings, setPreviewRatings] = useState<Record<string, number>>(
@@ -228,6 +229,7 @@ export default function ManageModulesViewPage({
       moduleName,
       moduleDescription,
       category,
+      status: status || "active",
       questions,
     };
 
@@ -419,6 +421,42 @@ export default function ManageModulesViewPage({
                 disabled={!isEditing && !!moduleId}
                 className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:bg-gray-2 disabled:opacity-50 dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary dark:disabled:bg-dark"
               />
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-body-sm font-medium text-dark dark:text-white">
+                Status
+              </label>
+              <div className="flex gap-6">
+                <label className="flex cursor-pointer items-center">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="active"
+                    checked={status === "active"}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={!isEditing && !!moduleId}
+                    className="mr-2 h-4 w-4 cursor-pointer border-stroke text-primary focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-3"
+                  />
+                  <span className="text-body-sm text-dark dark:text-white">
+                    Active
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-center">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="inactive"
+                    checked={status === "inactive"}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={!isEditing && !!moduleId}
+                    className="mr-2 h-4 w-4 cursor-pointer border-stroke text-primary focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-3"
+                  />
+                  <span className="text-body-sm text-dark dark:text-white">
+                    Inactive
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
 

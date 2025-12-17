@@ -24,7 +24,7 @@ export default function SignIn() {
               <Image src={NRSLogo} alt="NRS Logo" width={176} height={32} />
             </Link>
             <p className="mb-3 text-xl font-medium text-white">
-              Sign in to your account
+              SME Admin Portal
             </p>
 
             <h1 className="mb-4 text-2xl font-bold text-white sm:text-heading-3">

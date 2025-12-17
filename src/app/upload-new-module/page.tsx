@@ -14,14 +14,32 @@ interface ModuleData {
   id: string;
   position?: string;
   moduleName: string;
-  moduleDescription: string;
+  duration?: string;
+  moduleLearningOutcomes?: string;
+  moduleType?: string;
+  knowledgeType?: string;
+  deliveryMethod?: string;
+  resourcesAndMaterials?: string;
+  otherBenefitingDomains?: string;
+  assessmentAndEvaluation?: string;
+  postTrainingSupport?: string;
+  status?: string;
   questions: Question[];
 }
 
 export default function UploadNewModulePage() {
   const [moduleName, setModuleName] = useState("");
-  const [moduleDescription, setModuleDescription] = useState("");
   const [position, setPosition] = useState("");
+  const [duration, setDuration] = useState("");
+  const [moduleLearningOutcomes, setModuleLearningOutcomes] = useState("");
+  const [moduleType, setModuleType] = useState("");
+  const [knowledgeType, setKnowledgeType] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState("");
+  const [resourcesAndMaterials, setResourcesAndMaterials] = useState("");
+  const [otherBenefitingDomains, setOtherBenefitingDomains] = useState("");
+  const [assessmentAndEvaluation, setAssessmentAndEvaluation] = useState("");
+  const [postTrainingSupport, setPostTrainingSupport] = useState("");
+  const [status, setStatus] = useState<string>("active");
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewRatings, setPreviewRatings] = useState<Record<string, number>>(
@@ -100,7 +118,9 @@ export default function UploadNewModulePage() {
       }
 
       const headers = (data[0] as any[]).map((h) =>
-        String(h || "").toLowerCase().trim(),
+        String(h || "")
+          .toLowerCase()
+          .trim(),
       );
 
       // Find column indices - flexible matching
@@ -126,12 +146,81 @@ export default function UploadNewModulePage() {
           h.includes("question") ||
           h.includes("assessment"),
       );
-      const descIndex = headers.findIndex(
-        (h) =>
-          h.includes("description") ||
-          h.includes("desc") ||
-          h.includes("details"),
-      );
+      const durationIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase().trim();
+        // Match "duration" but exclude columns that contain "assessment" or "evaluation"
+        if (lower.includes("assessment") || lower.includes("evaluation")) {
+          return false;
+        }
+        return lower.includes("duration");
+      });
+      const moduleLearningOutcomesIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase();
+        return (
+          lower.includes("learning outcomes") ||
+          lower.includes("module learning outcomes") ||
+          (lower.includes("outcomes") && !lower.includes("assessment"))
+        );
+      });
+      const moduleTypeIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase().trim();
+        // Match "module type" but exclude "knowledge type" and "delivery method"
+        if (
+          lower.includes("knowledge type") ||
+          lower.includes("delivery method")
+        ) {
+          return false;
+        }
+        return lower.includes("module type") || lower === "module type";
+      });
+      const knowledgeTypeIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase();
+        return lower.includes("knowledge type") || lower.includes("knowledge");
+      });
+      const deliveryMethodIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase();
+        return (
+          lower.includes("delivery method") ||
+          (lower.includes("delivery") && lower.includes("method"))
+        );
+      });
+      const resourcesAndMaterialsIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase();
+        return (
+          lower.includes("resources and materials") ||
+          (lower.includes("resources") && lower.includes("materials"))
+        );
+      });
+      const otherBenefitingDomainsIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase();
+        return (
+          lower.includes("benefiting domains") ||
+          lower.includes("other benefiting domains") ||
+          (lower.includes("other") && lower.includes("domains"))
+        );
+      });
+      const assessmentAndEvaluationIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase().trim();
+        // Prioritize exact match first, then check for both words
+        if (lower.includes("duration")) {
+          return false; // Exclude duration columns
+        }
+        return (
+          lower === "assessment and evaluation" ||
+          lower.includes("assessment and evaluation") ||
+          (lower.includes("assessment") && lower.includes("evaluation"))
+        );
+      });
+      const postTrainingSupportIndex = headers.findIndex((h) => {
+        const lower = h.toLowerCase();
+        return (
+          lower.includes("post-training support") ||
+          lower.includes("post training support") ||
+          (lower.includes("post") &&
+            lower.includes("training") &&
+            lower.includes("support"))
+        );
+      });
 
       if (moduleTitleIndex < 0) {
         alert(
@@ -140,8 +229,26 @@ export default function UploadNewModulePage() {
         return;
       }
 
-      // Parse all rows as modules
+      // Debug: Log column indices for troubleshooting
+      console.log("Column indices:", {
+        position: positionIndex,
+        moduleTitle: moduleTitleIndex,
+        topics: topicsIndex,
+        duration: durationIndex,
+        moduleLearningOutcomes: moduleLearningOutcomesIndex,
+        moduleType: moduleTypeIndex,
+        knowledgeType: knowledgeTypeIndex,
+        deliveryMethod: deliveryMethodIndex,
+        resourcesAndMaterials: resourcesAndMaterialsIndex,
+        otherBenefitingDomains: otherBenefitingDomainsIndex,
+        assessmentAndEvaluation: assessmentAndEvaluationIndex,
+        postTrainingSupport: postTrainingSupportIndex,
+      });
+      console.log("Headers:", headers);
+
+      // Each row represents one module with topics in a single cell (bulleted list)
       const modules: ModuleData[] = [];
+
       for (let i = 1; i < data.length; i++) {
         const row = data[i] as any[];
 
@@ -151,29 +258,93 @@ export default function UploadNewModulePage() {
         const position = row[positionIndex]
           ? String(row[positionIndex]).trim()
           : "";
-        const topics = row[topicsIndex] ? String(row[topicsIndex]).trim() : "";
-        const description = row[descIndex]
-          ? String(row[descIndex]).trim()
+        const topicsString = row[topicsIndex]
+          ? String(row[topicsIndex]).trim()
           : "";
+        // Parse duration - Excel may have just a number, convert to string
+        let duration = "";
+        if (
+          durationIndex >= 0 &&
+          row[durationIndex] !== undefined &&
+          row[durationIndex] !== null
+        ) {
+          const durationValue = row[durationIndex];
+          // If it's a number, use it directly; otherwise convert to string and extract number
+          if (typeof durationValue === "number") {
+            duration = String(durationValue);
+          } else {
+            const durationStr = String(durationValue).trim();
+            // Extract first number from the string (handles cases like "4 weeks" or just "4")
+            const match = durationStr.match(/\d+/);
+            duration = match ? match[0] : durationStr;
+          }
+        }
+        const moduleLearningOutcomes =
+          moduleLearningOutcomesIndex >= 0 && row[moduleLearningOutcomesIndex]
+            ? String(row[moduleLearningOutcomesIndex]).trim()
+            : "";
+        const moduleType =
+          moduleTypeIndex >= 0 && row[moduleTypeIndex]
+            ? String(row[moduleTypeIndex]).trim()
+            : "";
+        const knowledgeType =
+          knowledgeTypeIndex >= 0 && row[knowledgeTypeIndex]
+            ? String(row[knowledgeTypeIndex]).trim()
+            : "";
+        const deliveryMethod =
+          deliveryMethodIndex >= 0 && row[deliveryMethodIndex]
+            ? String(row[deliveryMethodIndex]).trim()
+            : "";
+        const resourcesAndMaterials =
+          resourcesAndMaterialsIndex >= 0 && row[resourcesAndMaterialsIndex]
+            ? String(row[resourcesAndMaterialsIndex]).trim()
+            : "";
+        const otherBenefitingDomains =
+          otherBenefitingDomainsIndex >= 0 && row[otherBenefitingDomainsIndex]
+            ? String(row[otherBenefitingDomainsIndex]).trim()
+            : "";
+        const assessmentAndEvaluation =
+          assessmentAndEvaluationIndex >= 0 && row[assessmentAndEvaluationIndex]
+            ? String(row[assessmentAndEvaluationIndex]).trim()
+            : "";
+        const postTrainingSupport =
+          postTrainingSupportIndex >= 0 && row[postTrainingSupportIndex]
+            ? String(row[postTrainingSupportIndex]).trim()
+            : "";
 
         // Skip empty rows
         if (!moduleTitle) continue;
 
-        // Convert topics to questions
-        const questions = parseTopicsToQuestions(topics);
+        // Parse topics from the cell (handles bullet points, newlines, commas, etc.)
+        const questions = parseTopicsToQuestions(topicsString);
 
-        modules.push({
+        // Create module with all fields from this row
+        const module: ModuleData = {
           id: `module-${Date.now()}-${i}`,
           position: position || undefined,
           moduleName: moduleTitle,
-          moduleDescription: description || `Module: ${moduleTitle}`,
-          questions: questions.length > 0 ? questions : [
-            {
-              id: Date.now().toString() + i,
-              question: `How well do you understand ${moduleTitle}?`,
-            },
-          ],
-        });
+          duration: duration || undefined,
+          status: "active", // Default to active when importing from Excel
+          moduleLearningOutcomes: moduleLearningOutcomes || undefined,
+          moduleType: moduleType || undefined,
+          knowledgeType: knowledgeType || undefined,
+          deliveryMethod: deliveryMethod || undefined,
+          resourcesAndMaterials: resourcesAndMaterials || undefined,
+          otherBenefitingDomains: otherBenefitingDomains || undefined,
+          assessmentAndEvaluation: assessmentAndEvaluation || undefined,
+          postTrainingSupport: postTrainingSupport || undefined,
+          questions:
+            questions.length > 0
+              ? questions
+              : [
+                  {
+                    id: `${Date.now()}-${i}-default`,
+                    question: `How well do you understand ${moduleTitle}?`,
+                  },
+                ],
+        };
+
+        modules.push(module);
       }
 
       if (modules.length === 0) {
@@ -185,11 +356,22 @@ export default function UploadNewModulePage() {
       if (modules.length === 1) {
         const module = modules[0];
         setModuleName(module.moduleName);
-        setModuleDescription(module.moduleDescription);
         setPosition(module.position || "");
+        setDuration(module.duration || "");
+        setModuleLearningOutcomes(module.moduleLearningOutcomes || "");
+        setModuleType(module.moduleType || "");
+        setKnowledgeType(module.knowledgeType || "");
+        setDeliveryMethod(module.deliveryMethod || "");
+        setResourcesAndMaterials(module.resourcesAndMaterials || "");
+        setOtherBenefitingDomains(module.otherBenefitingDomains || "");
+        setAssessmentAndEvaluation(module.assessmentAndEvaluation || "");
+        setPostTrainingSupport(module.postTrainingSupport || "");
+        setStatus(module.status || "active");
         setQuestions(module.questions);
         setIsBulkMode(false);
-        alert("Excel file parsed successfully! Form fields have been populated.");
+        alert(
+          "Excel file parsed successfully! Form fields have been populated.",
+        );
       } else {
         // Multiple modules - switch to bulk mode
         setImportedModules(modules);
@@ -203,7 +385,7 @@ export default function UploadNewModulePage() {
     } catch (error) {
       console.error("Error parsing Excel file:", error);
       alert(
-        "Error parsing Excel file. Please ensure the file format is correct.\n\nExpected format:\n- First row: Headers (Position, Module Title, Topics)\n- Subsequent rows: Module data",
+        "Error parsing Excel file. Please ensure the file format is correct.\n\nExpected format:\n- First row: Headers (Position, Module Title, Topics, Duration, Module Learning Outcomes, Module Type, Knowledge Type, Delivery Method, Resources and Materials, Other Benefiting Domains, Assessment and Evaluation, Post-Training Support)\n- Subsequent rows: Each row represents one module. Topics can be in a single cell separated by bullet points, newlines, or commas.",
       );
     }
   };
@@ -214,9 +396,7 @@ export default function UploadNewModulePage() {
     value: any,
   ) => {
     setImportedModules(
-      importedModules.map((m) =>
-        m.id === id ? { ...m, [field]: value } : m,
-      ),
+      importedModules.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
     );
   };
 
@@ -323,9 +503,7 @@ export default function UploadNewModulePage() {
           // await fetch('/api/modules', { method: 'POST', body: JSON.stringify(module) });
         }
 
-        alert(
-          `Successfully created ${importedModules.length} module(s)!`,
-        );
+        alert(`Successfully created ${importedModules.length} module(s)!`);
         // Reset form
         setImportedModules([]);
         setIsBulkMode(false);
@@ -345,8 +523,17 @@ export default function UploadNewModulePage() {
 
       const moduleData = {
         moduleName,
-        moduleDescription,
         position: position || undefined,
+        duration: duration || undefined,
+        moduleLearningOutcomes: moduleLearningOutcomes || undefined,
+        moduleType: moduleType || undefined,
+        knowledgeType: knowledgeType || undefined,
+        deliveryMethod: deliveryMethod || undefined,
+        resourcesAndMaterials: resourcesAndMaterials || undefined,
+        otherBenefitingDomains: otherBenefitingDomains || undefined,
+        assessmentAndEvaluation: assessmentAndEvaluation || undefined,
+        postTrainingSupport: postTrainingSupport || undefined,
+        status: status || "active",
         questions,
       };
 
@@ -370,63 +557,48 @@ export default function UploadNewModulePage() {
                 Upload Excel File for Bulk Import
               </h3>
               <p className="mb-4 text-sm text-dark-6 dark:text-dark-4">
-                Upload an Excel file to import multiple modules at once. Each row
-                will be imported as a separate module.
+                Upload an Excel file to import multiple modules at once. Each
+                row represents one module. Topics can be listed in a single cell
+                separated by bullet points, newlines, or commas.
               </p>
-              <div className="mx-auto max-w-2xl rounded-lg bg-gray-100 p-4 text-left dark:bg-dark-2">
-                <p className="mb-2 text-xs font-semibold text-dark dark:text-white">
-                  Excel Format (Bulk Import):
-                </p>
-                <div className="mb-3 overflow-x-auto rounded border border-stroke bg-white p-2 text-xs dark:border-dark-3 dark:bg-gray-dark">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-stroke dark:border-dark-3">
-                        <th className="p-1 text-left">Position</th>
-                        <th className="p-1 text-left">Module Title</th>
-                        <th className="p-1 text-left">Topics</th>
-                        <th className="p-1 text-left">Description (Optional)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="p-1">Enterprise Portfolio Manager</td>
-                        <td className="p-1">
-                          Enterprise Portfolio Management Methodologies (MoP,
-                          PfMP)
-                        </td>
-                        <td className="p-1">
-                          Portfolio lifecycle and governance frameworks,
-                          Portfolio categorization and structuring, Strategic
-                          alignment and value delivery
-                        </td>
-                        <td className="p-1">Module description here</td>
-                      </tr>
-                      <tr>
-                        <td className="p-1">Project Manager</td>
-                        <td className="p-1">Project Management Fundamentals</td>
-                        <td className="p-1">
-                          Project planning, Risk management, Stakeholder
-                          engagement
-                        </td>
-                        <td className="p-1">Module description here</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-xs text-dark-6 dark:text-dark-4">
-                  <strong>Note:</strong> Topics can be separated by commas,
-                  newlines, or bullet points. Each topic will be converted to an
-                  assessment question.
-                </p>
+
+              <div className="mt-4 flex flex-col items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = "/sme-admin-template.xlsx";
+                    link.download = "sme-admin-template.xlsx";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-primary px-6 py-2.5 text-sm font-medium text-primary transition hover:bg-primary/10 focus:outline-none"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  Download Template File
+                </button>
+                <InputGroup
+                  type="file"
+                  fileStyleVariant="style1"
+                  label=""
+                  placeholder="Choose Excel file (.xlsx, .xls)"
+                  handleChange={handleExcelUpload}
+                  className="mx-auto max-w-md"
+                />
               </div>
-              <InputGroup
-                type="file"
-                fileStyleVariant="style1"
-                label=""
-                placeholder="Choose Excel file (.xlsx, .xls)"
-                handleChange={handleExcelUpload}
-                className="mx-auto max-w-md"
-              />
               {excelFile && (
                 <p className="mt-2 text-sm text-green">
                   File selected: {excelFile.name}
@@ -483,16 +655,16 @@ export default function UploadNewModulePage() {
                   return (
                     <div
                       key={module.id}
-                      className="rounded-lg border-2 border-stroke overflow-hidden dark:border-dark-3"
+                      className="overflow-hidden rounded-lg border-2 border-stroke dark:border-dark-3"
                     >
                       {/* Collapsible Header */}
                       <div
-                        className="flex items-center justify-between p-4 cursor-pointer bg-gray-50 dark:bg-dark-2 hover:bg-gray-100 dark:hover:bg-dark-3 transition-colors"
+                        className="flex cursor-pointer items-center justify-between bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:bg-dark-2 dark:hover:bg-dark-3"
                         onClick={() => toggleModuleExpansion(module.id)}
                       >
-                        <div className="flex items-center gap-3 flex-1">
+                        <div className="flex flex-1 items-center gap-3">
                           <svg
-                            className={`w-5 h-5 text-dark-6 dark:text-dark-4 transition-transform ${
+                            className={`h-5 w-5 text-dark-6 transition-transform dark:text-dark-4 ${
                               isExpanded ? "rotate-90" : ""
                             }`}
                             fill="none"
@@ -510,7 +682,7 @@ export default function UploadNewModulePage() {
                             <h4 className="text-base font-semibold text-dark dark:text-white">
                               Module {moduleIndex + 1}: {module.moduleName}
                             </h4>
-                            <p className="text-xs text-dark-6 dark:text-dark-4 mt-0.5">
+                            <p className="mt-0.5 text-xs text-dark-6 dark:text-dark-4">
                               {module.questions.length} question(s)
                               {module.position && ` • ${module.position}`}
                             </p>
@@ -522,7 +694,7 @@ export default function UploadNewModulePage() {
                             e.stopPropagation();
                             removeImportedModule(module.id);
                           }}
-                          className="text-sm text-red hover:text-red/80 px-2 py-1 rounded hover:bg-red/10 transition-colors"
+                          className="rounded px-2 py-1 text-sm text-red transition-colors hover:bg-red/10 hover:text-red/80"
                         >
                           Remove
                         </button>
@@ -531,11 +703,12 @@ export default function UploadNewModulePage() {
                       {/* Collapsible Content */}
                       <div
                         className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                          isExpanded ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+                          isExpanded
+                            ? "max-h-[5000px] opacity-100"
+                            : "max-h-0 opacity-0"
                         }`}
                       >
-                        <div className="p-5 space-y-4">
-
+                        <div className="space-y-4 p-5">
                           <div className="space-y-2">
                             <label className="block text-body-sm font-medium text-dark dark:text-white">
                               Module Name *
@@ -572,15 +745,27 @@ export default function UploadNewModulePage() {
                               onClick={(e) => e.stopPropagation()}
                               className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
                             >
-                              <option value="">Select position (optional)</option>
+                              <option value="">
+                                Select position (optional)
+                              </option>
                               <option value="Enterprise Portfolio Manager">
                                 Enterprise Portfolio Manager
                               </option>
-                              <option value="Project Manager">Project Manager</option>
-                              <option value="Program Manager">Program Manager</option>
-                              <option value="Portfolio Manager">Portfolio Manager</option>
-                              <option value="Business Analyst">Business Analyst</option>
-                              <option value="Senior Manager">Senior Manager</option>
+                              <option value="Project Manager">
+                                Project Manager
+                              </option>
+                              <option value="Program Manager">
+                                Program Manager
+                              </option>
+                              <option value="Portfolio Manager">
+                                Portfolio Manager
+                              </option>
+                              <option value="Business Analyst">
+                                Business Analyst
+                              </option>
+                              <option value="Senior Manager">
+                                Senior Manager
+                              </option>
                               <option value="Director">Director</option>
                               <option value="Executive">Executive</option>
                               <option value="Team Lead">Team Lead</option>
@@ -589,24 +774,273 @@ export default function UploadNewModulePage() {
                             </select>
                           </div>
 
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <label className="block text-body-sm font-medium text-dark dark:text-white">
+                                Duration
+                              </label>
+                              <select
+                                value={module.duration || ""}
+                                onChange={(e) =>
+                                  updateImportedModule(
+                                    module.id,
+                                    "duration",
+                                    e.target.value,
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                              >
+                                <option value="">
+                                  Select duration (optional)
+                                </option>
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((week) => (
+                                  <option key={week} value={week}>
+                                    {week} {week === 1 ? "week" : "weeks"}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-body-sm font-medium text-dark dark:text-white">
+                                Module Type
+                              </label>
+                              <select
+                                value={module.moduleType || ""}
+                                onChange={(e) =>
+                                  updateImportedModule(
+                                    module.id,
+                                    "moduleType",
+                                    e.target.value,
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                              >
+                                <option value="">
+                                  Select module type (optional)
+                                </option>
+                                <option value="Workshop">Workshop</option>
+                                <option value="Training">Training</option>
+                                <option value="Course">Course</option>
+                                <option value="Seminar">Seminar</option>
+                                <option value="Webinar">Webinar</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                          </div>
+
                           <div className="space-y-2">
                             <label className="block text-body-sm font-medium text-dark dark:text-white">
-                              Description
+                              Module Learning Outcomes
                             </label>
                             <textarea
-                              value={module.moduleDescription}
+                              value={module.moduleLearningOutcomes || ""}
                               onChange={(e) =>
                                 updateImportedModule(
                                   module.id,
-                                  "moduleDescription",
+                                  "moduleLearningOutcomes",
+                                  e.target.value,
+                                )
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              rows={3}
+                              className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                              placeholder="Enter module learning outcomes"
+                            />
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <label className="block text-body-sm font-medium text-dark dark:text-white">
+                                Knowledge Type
+                              </label>
+                              <input
+                                type="text"
+                                value={module.knowledgeType || ""}
+                                onChange={(e) =>
+                                  updateImportedModule(
+                                    module.id,
+                                    "knowledgeType",
+                                    e.target.value,
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                                placeholder="Enter knowledge type"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-body-sm font-medium text-dark dark:text-white">
+                                Delivery Method
+                              </label>
+                              <select
+                                value={module.deliveryMethod || ""}
+                                onChange={(e) =>
+                                  updateImportedModule(
+                                    module.id,
+                                    "deliveryMethod",
+                                    e.target.value,
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                              >
+                                <option value="">
+                                  Select delivery method (optional)
+                                </option>
+                                <option value="In-Person">In-Person</option>
+                                <option value="Online">Online</option>
+                                <option value="Hybrid">Hybrid</option>
+                                <option value="Self-Paced">Self-Paced</option>
+                                <option value="Blended">Blended</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="block text-body-sm font-medium text-dark dark:text-white">
+                              Resources and Materials
+                            </label>
+                            <textarea
+                              value={module.resourcesAndMaterials || ""}
+                              onChange={(e) =>
+                                updateImportedModule(
+                                  module.id,
+                                  "resourcesAndMaterials",
+                                  e.target.value,
+                                )
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              rows={3}
+                              className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                              placeholder="Enter resources and materials"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="block text-body-sm font-medium text-dark dark:text-white">
+                              Other Benefiting Domains
+                            </label>
+                            <textarea
+                              value={module.otherBenefitingDomains || ""}
+                              onChange={(e) =>
+                                updateImportedModule(
+                                  module.id,
+                                  "otherBenefitingDomains",
                                   e.target.value,
                                 )
                               }
                               onClick={(e) => e.stopPropagation()}
                               rows={2}
                               className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
-                              placeholder="Enter module description"
+                              placeholder="Enter other benefiting domains"
                             />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="block text-body-sm font-medium text-dark dark:text-white">
+                              Assessment and Evaluation
+                            </label>
+                            <select
+                              value={module.assessmentAndEvaluation || ""}
+                              onChange={(e) =>
+                                updateImportedModule(
+                                  module.id,
+                                  "assessmentAndEvaluation",
+                                  e.target.value,
+                                )
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                            >
+                              <option value="">
+                                Select assessment method (optional)
+                              </option>
+                              <option value="Quiz">Quiz</option>
+                              <option value="Exam">Exam</option>
+                              <option value="Project">Project</option>
+                              <option value="Assignment">Assignment</option>
+                              <option value="Practical Assessment">
+                                Practical Assessment
+                              </option>
+                              <option value="Peer Review">Peer Review</option>
+                              <option value="Self-Assessment">
+                                Self-Assessment
+                              </option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="block text-body-sm font-medium text-dark dark:text-white">
+                              Post-Training Support
+                            </label>
+                            <textarea
+                              value={module.postTrainingSupport || ""}
+                              onChange={(e) =>
+                                updateImportedModule(
+                                  module.id,
+                                  "postTrainingSupport",
+                                  e.target.value,
+                                )
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              rows={3}
+                              className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                              placeholder="Enter post-training support details"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="block text-body-sm font-medium text-dark dark:text-white">
+                              Status
+                            </label>
+                            <div className="flex gap-6">
+                              <label className="flex cursor-pointer items-center">
+                                <input
+                                  type="radio"
+                                  name={`status-${module.id}`}
+                                  value="active"
+                                  checked={module.status === "active"}
+                                  onChange={(e) =>
+                                    updateImportedModule(
+                                      module.id,
+                                      "status",
+                                      e.target.value,
+                                    )
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="mr-2 h-4 w-4 cursor-pointer border-stroke text-primary focus:ring-2 focus:ring-primary dark:border-dark-3"
+                                />
+                                <span className="text-body-sm text-dark dark:text-white">
+                                  Active
+                                </span>
+                              </label>
+                              <label className="flex cursor-pointer items-center">
+                                <input
+                                  type="radio"
+                                  name={`status-${module.id}`}
+                                  value="inactive"
+                                  checked={module.status === "inactive"}
+                                  onChange={(e) =>
+                                    updateImportedModule(
+                                      module.id,
+                                      "status",
+                                      e.target.value,
+                                    )
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="mr-2 h-4 w-4 cursor-pointer border-stroke text-primary focus:ring-2 focus:ring-primary dark:border-dark-3"
+                                />
+                                <span className="text-body-sm text-dark dark:text-white">
+                                  Inactive
+                                </span>
+                              </label>
+                            </div>
                           </div>
 
                           <div className="space-y-3">
@@ -680,122 +1114,295 @@ export default function UploadNewModulePage() {
                 Module Information
               </h3>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <InputGroup
-                label="Module Name"
-                placeholder="Enter module name"
-                type="text"
-                required
-                value={moduleName}
-                handleChange={(e) => setModuleName(e.target.value)}
-              />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <InputGroup
+                  label="Module Name"
+                  placeholder="Enter module name"
+                  type="text"
+                  required
+                  value={moduleName}
+                  handleChange={(e) => setModuleName(e.target.value)}
+                />
+
+                <div className="space-y-3">
+                  <label className="block text-body-sm font-medium text-dark dark:text-white">
+                    Position
+                  </label>
+                  <select
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary [&>option]:text-dark-5 dark:[&>option]:text-dark-6"
+                  >
+                    <option value="">Select position (optional)</option>
+                    <option value="Enterprise Portfolio Manager">
+                      Enterprise Portfolio Manager
+                    </option>
+                    <option value="Project Manager">Project Manager</option>
+                    <option value="Program Manager">Program Manager</option>
+                    <option value="Portfolio Manager">Portfolio Manager</option>
+                    <option value="Business Analyst">Business Analyst</option>
+                    <option value="Senior Manager">Senior Manager</option>
+                    <option value="Director">Director</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Team Lead">Team Lead</option>
+                    <option value="Consultant">Consultant</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <label className="block text-body-sm font-medium text-dark dark:text-white">
+                    Duration
+                  </label>
+                  <select
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary [&>option]:text-dark-5 dark:[&>option]:text-dark-6"
+                  >
+                    <option value="">Select duration (optional)</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((week) => (
+                      <option key={week} value={week}>
+                        {week} {week === 1 ? "week" : "weeks"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-body-sm font-medium text-dark dark:text-white">
+                    Module Type
+                  </label>
+                  <select
+                    value={moduleType}
+                    onChange={(e) => setModuleType(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary [&>option]:text-dark-5 dark:[&>option]:text-dark-6"
+                  >
+                    <option value="">Select module type (optional)</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Training">Training</option>
+                    <option value="Course">Course</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Webinar">Webinar</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
 
               <div className="space-y-3">
                 <label className="block text-body-sm font-medium text-dark dark:text-white">
-                  Position
+                  Module Learning Outcomes
+                </label>
+                <textarea
+                  value={moduleLearningOutcomes}
+                  onChange={(e) => setModuleLearningOutcomes(e.target.value)}
+                  rows={4}
+                  placeholder="Enter module learning outcomes"
+                  className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                />
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <label className="block text-body-sm font-medium text-dark dark:text-white">
+                    Knowledge Type
+                  </label>
+                  <input
+                    type="text"
+                    value={knowledgeType}
+                    onChange={(e) => setKnowledgeType(e.target.value)}
+                    placeholder="Enter knowledge type"
+                    className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-body-sm font-medium text-dark dark:text-white">
+                    Delivery Method
+                  </label>
+                  <select
+                    value={deliveryMethod}
+                    onChange={(e) => setDeliveryMethod(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary [&>option]:text-dark-5 dark:[&>option]:text-dark-6"
+                  >
+                    <option value="">Select delivery method (optional)</option>
+                    <option value="In-Person">In-Person</option>
+                    <option value="Online">Online</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Self-Paced">Self-Paced</option>
+                    <option value="Blended">Blended</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-body-sm font-medium text-dark dark:text-white">
+                  Resources and Materials
+                </label>
+                <textarea
+                  value={resourcesAndMaterials}
+                  onChange={(e) => setResourcesAndMaterials(e.target.value)}
+                  rows={4}
+                  placeholder="Enter resources and materials"
+                  className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-body-sm font-medium text-dark dark:text-white">
+                  Other Benefiting Domains
+                </label>
+                <textarea
+                  value={otherBenefitingDomains}
+                  onChange={(e) => setOtherBenefitingDomains(e.target.value)}
+                  rows={3}
+                  placeholder="Enter other benefiting domains"
+                  className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-body-sm font-medium text-dark dark:text-white">
+                  Assessment and Evaluation
                 </label>
                 <select
-                  value={position}
-                  onChange={(e) => setPosition(e.target.value)}
+                  value={assessmentAndEvaluation}
+                  onChange={(e) => setAssessmentAndEvaluation(e.target.value)}
                   className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary [&>option]:text-dark-5 dark:[&>option]:text-dark-6"
                 >
-                  <option value="">Select position (optional)</option>
-                  <option value="Enterprise Portfolio Manager">
-                    Enterprise Portfolio Manager
+                  <option value="">Select assessment method (optional)</option>
+                  <option value="Quiz">Quiz</option>
+                  <option value="Exam">Exam</option>
+                  <option value="Project">Project</option>
+                  <option value="Assignment">Assignment</option>
+                  <option value="Practical Assessment">
+                    Practical Assessment
                   </option>
-                  <option value="Project Manager">Project Manager</option>
-                  <option value="Program Manager">Program Manager</option>
-                  <option value="Portfolio Manager">Portfolio Manager</option>
-                  <option value="Business Analyst">Business Analyst</option>
-                  <option value="Senior Manager">Senior Manager</option>
-                  <option value="Director">Director</option>
-                  <option value="Executive">Executive</option>
-                  <option value="Team Lead">Team Lead</option>
-                  <option value="Consultant">Consultant</option>
+                  <option value="Peer Review">Peer Review</option>
+                  <option value="Self-Assessment">Self-Assessment</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <label className="block text-body-sm font-medium text-dark dark:text-white">
-                Module Description
-              </label>
-              <textarea
-                value={moduleDescription}
-                onChange={(e) => setModuleDescription(e.target.value)}
-                rows={4}
-                placeholder="Enter module description"
-                className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
-              />
-            </div>
+              <div className="space-y-3">
+                <label className="block text-body-sm font-medium text-dark dark:text-white">
+                  Post-Training Support
+                </label>
+                <textarea
+                  value={postTrainingSupport}
+                  onChange={(e) => setPostTrainingSupport(e.target.value)}
+                  rows={4}
+                  placeholder="Enter post-training support details"
+                  className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-body-sm font-medium text-dark dark:text-white">
+                  Status
+                </label>
+                <div className="flex gap-6">
+                  <label className="flex cursor-pointer items-center">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="active"
+                      checked={status === "active"}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="mr-2 h-4 w-4 cursor-pointer border-stroke text-primary focus:ring-2 focus:ring-primary dark:border-dark-3"
+                    />
+                    <span className="text-body-sm text-dark dark:text-white">
+                      Active
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="inactive"
+                      checked={status === "inactive"}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="mr-2 h-4 w-4 cursor-pointer border-stroke text-primary focus:ring-2 focus:ring-primary dark:border-dark-3"
+                    />
+                    <span className="text-body-sm text-dark dark:text-white">
+                      Inactive
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Assessment Questions Section - Only show in single module mode */}
           {!isBulkMode && (
             <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-dark dark:text-white">
-                  Assessment Questions
-                </h3>
-                <p className="mt-1 text-sm text-dark-6 dark:text-dark-4">
-                  Each question will be rated 1-5 by staff members to assess
-                  their knowledge level
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={addQuestion}
-                className="inline-flex items-center justify-center gap-2.5 rounded-[5px] border border-primary px-6 py-[11px] text-center font-medium text-primary transition hover:bg-primary/10 focus:outline-none"
-              >
-                Add Assessment Question
-              </button>
-            </div>
-
-            {questions.map((question, index) => (
-              <div
-                key={question.id}
-                className="rounded-lg border border-stroke p-5 dark:border-dark-3"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <h4 className="font-semibold text-dark dark:text-white">
-                    Assessment Question {index + 1}
-                  </h4>
-                  {questions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeQuestion(question.id)}
-                      className="text-sm text-red hover:text-red/80"
-                    >
-                      Remove
-                    </button>
-                  )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-dark dark:text-white">
+                    Assessment Questions
+                  </h3>
+                  <p className="mt-1 text-sm text-dark-6 dark:text-dark-4">
+                    Each question will be rated 1-5 by staff members to assess
+                    their knowledge level
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={addQuestion}
+                  className="inline-flex items-center justify-center gap-2.5 rounded-[5px] border border-primary px-6 py-[11px] text-center font-medium text-primary transition hover:bg-primary/10 focus:outline-none"
+                >
+                  Add Assessment Question
+                </button>
+              </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <label className="block text-body-sm font-medium text-dark dark:text-white">
-                      Question Text
-                    </label>
-                    <textarea
-                      value={question.question}
-                      onChange={(e) =>
-                        updateQuestion(question.id, "question", e.target.value)
-                      }
-                      rows={3}
-                      placeholder="e.g., How well do you understand tax compliance requirements?"
-                      className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
-                    />
-                    <p className="text-xs text-dark-6 dark:text-dark-4">
-                      Staff members will rate their knowledge of this topic on a
-                      scale of 1-5 (1 = Poor, 5 = Excellent)
-                    </p>
+              {questions.map((question, index) => (
+                <div
+                  key={question.id}
+                  className="rounded-lg border border-stroke p-5 dark:border-dark-3"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <h4 className="font-semibold text-dark dark:text-white">
+                      Assessment Question {index + 1}
+                    </h4>
+                    {questions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeQuestion(question.id)}
+                        className="text-sm text-red hover:text-red/80"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <label className="block text-body-sm font-medium text-dark dark:text-white">
+                        Question Text
+                      </label>
+                      <textarea
+                        value={question.question}
+                        onChange={(e) =>
+                          updateQuestion(
+                            question.id,
+                            "question",
+                            e.target.value,
+                          )
+                        }
+                        rows={3}
+                        placeholder="e.g., How well do you understand tax compliance requirements?"
+                        className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                      />
+                      <p className="text-xs text-dark-6 dark:text-dark-4">
+                        Staff members will rate their knowledge of this topic on
+                        a scale of 1-5 (1 = Poor, 5 = Excellent)
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
             </div>
           )}
 
@@ -818,8 +1425,17 @@ export default function UploadNewModulePage() {
                   setIsBulkMode(false);
                 } else {
                   setModuleName("");
-                  setModuleDescription("");
                   setPosition("");
+                  setDuration("");
+                  setModuleLearningOutcomes("");
+                  setModuleType("");
+                  setKnowledgeType("");
+                  setDeliveryMethod("");
+                  setResourcesAndMaterials("");
+                  setOtherBenefitingDomains("");
+                  setAssessmentAndEvaluation("");
+                  setPostTrainingSupport("");
+                  setStatus("active");
                   setQuestions([{ id: "1", question: "" }]);
                 }
                 setExcelFile(null);
@@ -831,7 +1447,7 @@ export default function UploadNewModulePage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center gap-2.5 rounded-[5px] bg-[rgb(214,49,41)] px-10 py-3.5 text-center font-medium text-white transition hover:bg-[rgb(214,49,41)]/90 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed lg:px-8 xl:px-10"
+              className="inline-flex items-center justify-center gap-2.5 rounded-[5px] bg-[rgb(214,49,41)] px-10 py-3.5 text-center font-medium text-white transition hover:bg-[rgb(214,49,41)]/90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:px-8 xl:px-10"
             >
               {isSubmitting
                 ? "Submitting..."
@@ -859,11 +1475,6 @@ export default function UploadNewModulePage() {
               <h3 className="mb-2 text-xl font-bold text-dark dark:text-white">
                 {moduleName || "Module Name"}
               </h3>
-              {moduleDescription && (
-                <p className="mt-3 text-sm text-dark-6 dark:text-dark-4">
-                  {moduleDescription}
-                </p>
-              )}
             </div>
 
             {/* Questions Preview */}
