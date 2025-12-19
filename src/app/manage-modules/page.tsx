@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const TablesPage = () => {
   return (
     <>
-      <Breadcrumb pageName="Tables" />
+      <Breadcrumb pageName="Manage Modules" />
 
       <div className="space-y-10">
         <Suspense fallback={<TopChannelsSkeleton />}>
